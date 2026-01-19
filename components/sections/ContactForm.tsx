@@ -320,8 +320,11 @@ import ContactFormSearchParams from './ContactFormSearchParams';
           // Update stats
           setStats(prev => ({ ...prev, registrations: prev.registrations + 1 }));
 
-          // Check API statuses
-          if (formData.type === 'affiliate') {
+          // Check API statuses - use isAffiliate flag from API response or fallback to form type
+          const isAffiliateUser = data.data?.isAffiliate || formData.type === 'affiliate';
+          setIsAffiliate(isAffiliateUser);
+
+          if (isAffiliateUser) {
             if (data.data?.affiliatePosted) {
               setApiStatus('posted');
             } else if (data.data?.affiliateError) {
@@ -383,13 +386,7 @@ import ContactFormSearchParams from './ContactFormSearchParams';
         const data = await response.json();
 
         if (response.ok && data.success) {
-          // ✅ REDIRECT FOR AFFILIATE (REQUIRED FOR FTD)
-          if (data.redirectUrl) {
-            window.location.href = data.redirectUrl;
-            return; // stop execution
-          }
-
-          // Non-affiliate success
+          // Non-affiliate success - show message, don't redirect
           setFtdStatus('success');
           setFtdMessage(data.message || 'FTD simulated successfully');
           
@@ -523,14 +520,14 @@ import ContactFormSearchParams from './ContactFormSearchParams';
                       <CheckCircle2 className="w-10 h-10 text-accent-green" />
                     </div>
                     <h3 className="text-2xl font-bold text-text mb-4">
-                      {formData.type === 'affiliate' ? 'Welcome to Our Network!' : 'Thank You!'}
+                      {isAffiliate ? 'Welcome to Our Network!' : 'Thank You!'}
                     </h3>
                     <p className="text-text-muted mb-6 max-w-md mx-auto">
                       {apiMessage}
                     </p>
 
                     {/* Affiliate Tracking Info */}
-                    {formData.type === 'affiliate' && generatedTrackingLink && (
+                    {isAffiliate && generatedTrackingLink && (
                       <div className="mb-8 p-6 bg-accent-green/5 border border-accent-green/20 rounded-xl max-w-lg mx-auto">
                         <h4 className="text-lg font-semibold text-text mb-3 flex items-center justify-center gap-2">
                           <Link className="w-5 h-5" />
@@ -563,7 +560,7 @@ import ContactFormSearchParams from './ContactFormSearchParams';
                     )}
 
                     {/* FTD Simulation */}
-                    {formData.type === 'affiliate' && (
+                    {isAffiliate && (
                       <div className="mb-8 p-6 bg-primary-50 dark:bg-primary-900/20 border border-primary-200 dark:border-primary-700 rounded-xl max-w-lg mx-auto">
                         <h4 className="text-lg font-semibold text-text mb-3 flex items-center justify-center gap-2">
                           <CrosshairIcon className="w-5 h-5" />
@@ -622,7 +619,7 @@ import ContactFormSearchParams from './ContactFormSearchParams';
                         onClick={resetForm}
                         leftIcon={<RefreshCw className="w-4 h-4" />}
                       >
-                        {formData.type === 'affiliate' ? 'Register Another Affiliate' : 'Submit Another Form'}
+                        {isAffiliate ? 'Register Another Affiliate' : 'Submit Another Form'}
                       </Button>
                       <Button
                         variant="outline"

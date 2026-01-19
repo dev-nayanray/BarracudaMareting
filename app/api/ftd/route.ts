@@ -64,11 +64,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       message: 'FTD simulated successfully! Your tracking has been recorded.',
-      redirectUrl, // Include redirect URL for frontend to redirect affiliate
+      // Don't include redirectUrl to prevent automatic redirect
+      // Frontend will show success message with a link to test tracking manually
       data: {
         ftdPosted: true,
         affiliateId: affiliate_id,
-        commission: deposit_amount * 0.3 // 30% commission estimate
+        commission: deposit_amount * 0.30, // 30% commission estimate
+        testUrl: redirectUrl
       }
     });
 

@@ -100,7 +100,8 @@ export async function POST(request: NextRequest) {
         success: true,
         message: 'Affiliate application submitted successfully',
         data: {
-          affiliatePosted: true, // Form submitted successfully
+          affiliatePosted: true,
+          isAffiliate: true, // Critical flag for frontend to show affiliate content
           trackingLink,
           affiliateId: affiliate_id || '2',
           dashboardUrl: 'https://barracuda-pp.irev.com/affiliates/en/app/dashboard',
