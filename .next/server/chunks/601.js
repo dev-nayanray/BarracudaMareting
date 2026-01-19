@@ -1,0 +1,1 @@
+"use strict";exports.id=601,exports.ids=[601],exports.modules={9601:(t,e,r)=>{r.r(e),r.d(e,{default:()=>s});let s=(0,r(8570).createProxy)(String.raw`C:\Users\USER\Desktop\BarracudaMareting\components\sections\ContactForm.tsx#default`)}};

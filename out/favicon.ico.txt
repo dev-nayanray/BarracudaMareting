@@ -1,0 +1,8 @@
+Placeholder favicon.ico - Replace with actual favicon
+For a real favicon, you can:
+1. Generate one at https://favicon.io/
+2. Or use an SVG favicon
+3. Or use any image editor to create a 32x32 icon
+
+The favicon should be placed at: frontend/public/favicon.ico
+

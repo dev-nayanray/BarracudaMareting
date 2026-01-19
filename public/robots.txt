@@ -1,0 +1,20 @@
+# Affiiate - Casino Affiliate Network
+# Robots.txt
+
+User-agent: *
+Allow: /
+
+# Sitemap
+Sitemap: https://affiiate.com/sitemap.xml
+
+# Crawl-delay
+Crawl-delay: 10
+
+# Disallow admin/private paths
+Disallow: /api/
+Disallow: /_next/
+Disallow: /out/
+
+# Host
+Host: https://affiiate.com
+
