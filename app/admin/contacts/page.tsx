@@ -43,8 +43,8 @@ export default function ContactsPage() {
   
   const [contacts, setContacts] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [selectedContact, setSelectedContact] = useState(null);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedContact, setSelectedContact] = useState<any>(null);
   const [showModal, setShowModal] = useState(false);
   const [editingStatus, setEditingStatus] = useState('');
   const [editingNotes, setEditingNotes] = useState('');

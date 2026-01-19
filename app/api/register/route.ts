@@ -111,27 +111,13 @@ export async function POST(request: NextRequest) {
     }
 
     // 3. Non-affiliate submission (advertiser, influencer, etc.)
-    // Optionally save to different table or send notification
-    /*
-    await prisma.nonAffiliate.create({
-      data: {
-        name,
-        email,
-        company,
-        type,
-        messenger: messenger || null,
-        username: username || null,
-        message: message || null,
-        status: 'pending'
-      }
-    });
-    */
-
+    // Always include isAffiliate flag for frontend consistency
     return NextResponse.json({
       success: true,
       message: 'Contact form submitted successfully. Our team will contact you within 24 hours.',
       data: {
-        posted: true
+        posted: true,
+        isAffiliate: false // Explicitly mark as non-affiliate
       }
     });
 
