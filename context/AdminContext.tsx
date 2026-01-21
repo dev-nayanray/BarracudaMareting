@@ -55,7 +55,9 @@ export function AdminProvider({ children }) {
       const response = await adminAPI.login(email, password);
       
       if (response.success) {
-        setUser(response.data.user);
+        // Handle both response.data.user and response.data directly
+        const userData = response.data.user || response.data;
+        setUser(userData);
         return { success: true };
       } else {
         setError(response.message);

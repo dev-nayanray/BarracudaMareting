@@ -9,7 +9,8 @@ import {
   LogOut,
   ChevronLeft,
   ChevronRight,
-  Building2
+  Building2,
+  Target
 } from 'lucide-react';
 import { useAdmin } from '@/context/AdminContext';
 import Button from '@/components/ui/Button';
@@ -24,6 +25,11 @@ const menuItems = [
     name: 'Contacts',
     href: '/admin/contacts',
     icon: Users,
+  },
+  {
+    name: 'Conversions',
+    href: '/admin/conversions',
+    icon: Target,
   },
   {
     name: 'Settings',

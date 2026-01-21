@@ -1,80 +1,107 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { connectToDatabase, getFTDsCollection, getContactsCollection, FTD } from '@/lib/mongodb';
 
 export async function POST(request: NextRequest) {
   try {
+    const { db } = await connectToDatabase();
+    const ftdCollection = getFTDsCollection(db);
+    const contactsCollection = getContactsCollection(db);
+
     const body = await request.json();
 
-    // Extract required fields for FTD postback
     const {
+      click_id,
       affiliate_id,
-      url_id,
-      sub1, // aff_click_id
-      deposit_amount
+      offer_id,
+      amount,
+      sale_amount,
+      status
     } = body;
 
-    // Basic validation
-    if (!affiliate_id || !deposit_amount) {
+    // -------------------------------
+    // Validation
+    // -------------------------------
+    if (!click_id || !affiliate_id || !amount) {
       return NextResponse.json(
-        { success: false, message: 'Affiliate ID and deposit amount are required' },
+        { success: false, message: 'click_id, affiliate_id and amount are required' },
         { status: 400 }
       );
     }
 
-    // Build redirect URL for affiliate to access the offer/dashboard
-    const redirectUrl = `https://hooplaseft.com/api/v3/offer/2?affiliate_id=${affiliate_id}&url_id=${url_id || '2'}`;
-
-    // Non-blocking FTD postback - don't fail if hooplaseft.com is unavailable
-    const ftdPostbackCall = async () => {
-      try {
-        // Build query parameters for Hooplaseft FTD postback
-        const params = new URLSearchParams({
-          affiliate_id: affiliate_id.toString(),
-          url_id: url_id || '2',
-          deposit_amount: deposit_amount.toString()
-        });
-
-        // Add optional sub1 (click ID)
-        if (sub1) params.append('sub1', sub1);
-
-        // Construct Hooplaseft API URL for FTD
-        const hooplaseftUrl = `https://hooplaseft.com/api/v3/offer/2?${params.toString()}`;
-
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
-
-        const response = await fetch(hooplaseftUrl, {
-          method: 'GET',
-          headers: {
-            'User-Agent': 'Next.js FTD Postback API',
-          },
-          signal: controller.signal,
-        });
-
-        clearTimeout(timeoutId);
-        console.log('FTD postback sent to Hooplaseft:', response.ok ? 'success' : `error ${response.status}`);
-      } catch (error) {
-        // Log but don't fail - FTD simulation should succeed regardless
-        console.log('FTD postback to Hooplaseft failed (non-critical):', error.message);
-      }
+    // -------------------------------
+    // Atomic upsert FTD to MongoDB (prevents duplicate key errors)
+    // -------------------------------
+    const ftdData = {
+      click_id,
+      affiliate_id,
+      offer_id: offer_id || undefined,
+      amount: typeof amount === 'string' ? parseFloat(amount) : amount,
+      sale_amount: sale_amount ? (typeof sale_amount === 'string' ? parseFloat(sale_amount) : sale_amount) : undefined,
+      status: status || 'approved',
+      createdAt: new Date(),
+      updatedAt: new Date()
     };
 
-    // Trigger non-blocking FTD postback
-    ftdPostbackCall().catch(() => {});
+    const ftdResult = await ftdCollection.findOneAndUpdate(
+      { click_id: click_id },
+      {
+        $setOnInsert: ftdData,
+        $set: { updatedAt: new Date() }
+      },
+      { upsert: true, returnDocument: 'after' }
+    );
+
+    const isNewFTD = !!ftdResult?.createdAt && ftdResult.createdAt >= new Date(Date.now() - 1000);
+    
+    if (!isNewFTD) {
+      console.log('Duplicate FTD ignored:', click_id);
+      return NextResponse.json({
+        success: true,
+        message: 'Duplicate FTD ignored',
+        data: {
+          click_id,
+          isDuplicate: true
+        },
+        isDuplicate: true
+      });
+    }
+
+    console.log('✅ FTD saved to MongoDB:', ftdResult?._id);
+
+    // -------------------------------
+    // Update associated contact
+    // -------------------------------
+    await contactsCollection.updateMany(
+      {
+        $or: [
+          { sub1: click_id },
+          { affiliate_id: affiliate_id }
+        ]
+      },
+      {
+        $set: {
+          ftd: true,
+          ftd_amount: ftdData.amount,
+          ftd_date: new Date(),
+          updatedAt: new Date()
+        }
+      }
+    );
 
     return NextResponse.json({
       success: true,
-      message: 'FTD simulated successfully! Your tracking has been recorded.',
-      // Don't include redirectUrl to prevent automatic redirect
-      // Frontend will show success message with a link to test tracking manually
+      message: 'FTD recorded successfully',
       data: {
-        ftdPosted: true,
-        affiliateId: affiliate_id,
-        commission: deposit_amount * 0.30, // 30% commission estimate
-        testUrl: redirectUrl
+        click_id,
+        affiliate_id,
+        amount: ftdData.amount,
+        sale_amount: ftdData.sale_amount,
+        status: ftdData.status,
+        isDuplicate: false
       }
     });
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('FTD API error:', error);
     return NextResponse.json(
       { success: false, message: 'Internal server error' },

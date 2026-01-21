@@ -12,17 +12,15 @@ import {
   Building2,
   CheckCircle,
   XCircle,
-  Clock
+  Clock,
+  DollarSign
 } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import Input from '@/components/ui/Input';
 import Select from '@/components/ui/Select';
 
-/**
- * Status badge component
- */
-const StatusBadge = ({ status }) => {
-  const statusConfig = {
+const StatusBadge = ({ status }: { status: string }) => {
+  const statusConfig: Record<string, { color: string; icon: any; label: string }> = {
     new: { color: 'bg-blue-500/20 text-blue-400', icon: Clock, label: 'New' },
     contacted: { color: 'bg-yellow-500/20 text-yellow-400', icon: MessageSquare, label: 'Contacted' },
     qualified: { color: 'bg-accent-green/20 text-accent-green', icon: CheckCircle, label: 'Qualified' },
@@ -40,11 +38,8 @@ const StatusBadge = ({ status }) => {
   );
 };
 
-/**
- * Affiliate Status badge component
- */
-const AffiliateStatusBadge = ({ status }) => {
-  const statusConfig = {
+const AffiliateStatusBadge = ({ status }: { status: string }) => {
+  const statusConfig: Record<string, { color: string; label: string }> = {
     pending: { color: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30', label: 'Pending' },
     approved: { color: 'bg-accent-green/20 text-accent-green border-accent-green/30', label: 'Approved' },
     rejected: { color: 'bg-accent-red/20 text-accent-red border-accent-red/30', label: 'Rejected' },
@@ -59,11 +54,8 @@ const AffiliateStatusBadge = ({ status }) => {
   );
 };
 
-/**
- * Type badge component
- */
-const TypeBadge = ({ type }) => {
-  const typeConfig = {
+const TypeBadge = ({ type }: { type: string }) => {
+  const typeConfig: Record<string, { color: string; label: string }> = {
     affiliate: { color: 'bg-secondary-500/20 text-secondary-400 border-secondary-500/30', label: 'Affiliate' },
     publisher: { color: 'bg-secondary-500/20 text-secondary-400 border-secondary-500/30', label: 'Publisher' },
     advertiser: { color: 'bg-primary-500/20 text-primary-400 border-primary-500/30', label: 'Advertiser' },
@@ -81,39 +73,50 @@ const TypeBadge = ({ type }) => {
   );
 };
 
-/**
- * API Status component - shows Hooplaseft status for affiliates
- */
-const ApiStatus = ({ contact }) => {
+const ApiStatus = ({ contact }: { contact: any }) => {
   return (
     <div className="flex items-center gap-2">
-      {/* Hooplaseft Status (for affiliates) */}
-      {contact.registration_type === 'affiliate' && (
-        <>
-          {contact.affiliateRegistered ? (
-            <div className="flex items-center gap-1" title="Hooplaseft: Registered">
-              <CheckCircle className="w-4 h-4 text-accent-green" />
-            </div>
-          ) : contact.affiliateError ? (
-            <div className="flex items-center gap-1" title={`Hooplaseft: ${contact.affiliateError}`}>
-              <XCircle className="w-4 h-4 text-accent-red" />
-            </div>
-          ) : (
-            <div className="flex items-center gap-1" title="Hooplaseft: Pending">
-              <Clock className="w-4 h-4 text-text-muted" />
-            </div>
-          )}
-        </>
+      {contact.affiliateRegistered ? (
+        <div className="flex items-center gap-1" title="Hooplaseft: Registered">
+          <CheckCircle className="w-4 h-4 text-accent-green" />
+        </div>
+      ) : contact.affiliateError ? (
+        <div className="flex items-center gap-1" title={`Hooplaseft: ${contact.affiliateError}`}>
+          <XCircle className="w-4 h-4 text-accent-red" />
+        </div>
+      ) : (
+        <div className="flex items-center gap-1" title="Hooplaseft: Pending">
+          <Clock className="w-4 h-4 text-text-muted" />
+        </div>
       )}
     </div>
   );
 };
 
-/**
- * Contacts Table Component
- * Displays contacts with search, filter, and actions
- * Supports affiliate-specific features
- */
+const FTDBadge = ({ contact }: { contact: any }) => {
+  if (contact.ftd) {
+    return (
+      <div className="flex items-center gap-1 text-accent-green" title={`FTD: $${contact.ftd_amount || 0}`}>
+        <DollarSign className="w-4 h-4" />
+        <span className="text-xs">${contact.ftd_amount || 0}</span>
+      </div>
+    );
+  }
+  return <span className="text-text-muted text-xs">-</span>;
+};
+
+interface ContactsTableProps {
+  contacts?: any[];
+  loading?: boolean;
+  onView: (contact: any) => void;
+  onEdit: (contact: any) => void;
+  onDelete: (contact: any) => void;
+  renderTypeBadge?: (type: string) => React.ReactNode;
+  renderAffiliateStatusBadge?: (status: string) => React.ReactNode;
+  renderApiStatus?: (contact: any) => React.ReactNode;
+  renderFTDBadge?: (contact: any) => React.ReactNode;
+}
+
 export default function ContactsTable({ 
   contacts = [], 
   loading = false, 
@@ -122,20 +125,20 @@ export default function ContactsTable({
   onDelete,
   renderTypeBadge,
   renderAffiliateStatusBadge,
-  renderApiStatus
-}) {
+  renderApiStatus,
+  renderFTDBadge
+}: ContactsTableProps) {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('');
   const [filterStatus, setFilterStatus] = useState('');
   const [filterAffiliateStatus, setFilterAffiliateStatus] = useState('');
-  const [openMenu, setOpenMenu] = useState(null);
+  const [openMenu, setOpenMenu] = useState<string | null>(null);
 
-  // Filter contacts based on search and filters
   const filteredContacts = contacts.filter(contact => {
     const matchesSearch = !searchTerm || 
-      contact.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      contact.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      contact.company.toLowerCase().includes(searchTerm.toLowerCase());
+      contact.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      contact.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      contact.company?.toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesType = !filterType || contact.type === filterType;
     const matchesStatus = !filterStatus || contact.status === filterStatus;
@@ -171,7 +174,6 @@ export default function ContactsTable({
 
   return (
     <div className="space-y-4">
-      {/* Filters */}
       <div className="flex flex-col md:flex-row gap-4">
         <div className="flex-1">
           <Input
@@ -204,7 +206,6 @@ export default function ContactsTable({
         </div>
       </div>
 
-      {/* Table */}
       <div className="card overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
@@ -219,13 +220,14 @@ export default function ContactsTable({
                 <th className="px-6 py-4 text-left text-xs font-semibold text-text-muted uppercase tracking-wider">
                   Type
                 </th>
-                {contacts.some(c => c.registration_type === 'affiliate') && (
-                  <th className="px-6 py-4 text-left text-xs font-semibold text-text-muted uppercase tracking-wider">
-                    Affiliate Status
-                  </th>
-                )}
                 <th className="px-6 py-4 text-left text-xs font-semibold text-text-muted uppercase tracking-wider">
-                  Contact Status
+                  Affiliate Status
+                </th>
+                <th className="px-6 py-4 text-left text-xs font-semibold text-text-muted uppercase tracking-wider">
+                  Status
+                </th>
+                <th className="px-6 py-4 text-left text-xs font-semibold text-text-muted uppercase tracking-wider">
+                  FTD
                 </th>
                 <th className="px-6 py-4 text-left text-xs font-semibold text-text-muted uppercase tracking-wider">
                   APIs
@@ -284,22 +286,26 @@ export default function ContactsTable({
                         <TypeBadge type={contact.type} />
                       )}
                     </td>
-                    {/* Affiliate Status Column */}
-                    {contacts.some(c => c.registration_type === 'affiliate') && (
-                      <td className="px-6 py-4">
-                        {contact.registration_type === 'affiliate' ? (
-                          renderAffiliateStatusBadge ? (
-                            renderAffiliateStatusBadge(contact.affiliate_status)
-                          ) : (
-                            <AffiliateStatusBadge status={contact.affiliate_status} />
-                          )
+                    <td className="px-6 py-4">
+                      {contact.type === 'affiliate' ? (
+                        renderAffiliateStatusBadge ? (
+                          renderAffiliateStatusBadge(contact.affiliate_status)
                         ) : (
-                          <span className="text-text-muted text-xs">-</span>
-                        )}
-                      </td>
-                    )}
+                          <AffiliateStatusBadge status={contact.affiliate_status} />
+                        )
+                      ) : (
+                        <span className="text-text-muted text-xs">-</span>
+                      )}
+                    </td>
                     <td className="px-6 py-4">
                       <StatusBadge status={contact.status || 'new'} />
+                    </td>
+                    <td className="px-6 py-4">
+                      {renderFTDBadge ? (
+                        renderFTDBadge(contact)
+                      ) : (
+                        <FTDBadge contact={contact} />
+                      )}
                     </td>
                     <td className="px-6 py-4">
                       {renderApiStatus ? (
@@ -309,7 +315,7 @@ export default function ContactsTable({
                       )}
                     </td>
                     <td className="px-6 py-4 text-text-muted text-sm">
-                      {new Date(contact.createdAt).toLocaleDateString()}
+                      {contact.createdAt ? new Date(contact.createdAt).toLocaleDateString() : '-'}
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center justify-end gap-2">
@@ -325,7 +331,7 @@ export default function ContactsTable({
                             <div className="absolute right-0 top-full mt-1 w-40 bg-surface-200 border border-surface-300 rounded-xl shadow-lg z-10 py-1">
                               <button
                                 onClick={() => {
-                                  onView?.(contact);
+                                  onView(contact);
                                   setOpenMenu(null);
                                 }}
                                 className="w-full flex items-center gap-2 px-4 py-2 text-sm text-text hover:bg-surface-300 transition-colors"
@@ -335,7 +341,7 @@ export default function ContactsTable({
                               </button>
                               <button
                                 onClick={() => {
-                                  onEdit?.(contact);
+                                  onEdit(contact);
                                   setOpenMenu(null);
                                 }}
                                 className="w-full flex items-center gap-2 px-4 py-2 text-sm text-text hover:bg-surface-300 transition-colors"
@@ -345,7 +351,7 @@ export default function ContactsTable({
                               </button>
                               <button
                                 onClick={() => {
-                                  onDelete?.(contact);
+                                  onDelete(contact);
                                   setOpenMenu(null);
                                 }}
                                 className="w-full flex items-center gap-2 px-4 py-2 text-sm text-accent-red hover:bg-surface-300 transition-colors"
@@ -366,7 +372,6 @@ export default function ContactsTable({
         </div>
       </div>
 
-      {/* Results count */}
       {!loading && filteredContacts.length > 0 && (
         <p className="text-sm text-text-muted">
           Showing {filteredContacts.length} contact{filteredContacts.length !== 1 ? 's' : ''}
@@ -376,5 +381,5 @@ export default function ContactsTable({
   );
 }
 
-export { StatusBadge, AffiliateStatusBadge, TypeBadge, ApiStatus };
+export { StatusBadge, AffiliateStatusBadge, TypeBadge, ApiStatus, FTDBadge };
 

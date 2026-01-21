@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -13,7 +12,9 @@ import {
   UserX,
   Link as LinkIcon,
   Copy,
-  Zap
+  Zap,
+  DollarSign,
+  TrendingUp
 } from 'lucide-react';
 import { useAdmin } from '@/context/AdminContext';
 import adminAPI from '@/lib/admin-api';
@@ -23,9 +24,6 @@ import Card from '@/components/ui/Card';
 import Textarea from '@/components/ui/Textarea';
 import Select from '@/components/ui/Select';
 
-/**
- * Status options for contact status
- */
 const statusOptions = [
   { value: 'new', label: 'New' },
   { value: 'contacted', label: 'Contacted' },
@@ -33,15 +31,11 @@ const statusOptions = [
   { value: 'rejected', label: 'Rejected' },
 ];
 
-/**
- * Admin Contacts Management Page
- * Includes affiliate-specific management features
- */
 export default function ContactsPage() {
   const router = useRouter();
   const { isAuthenticated, loading: authLoading } = useAdmin();
   
-  const [contacts, setContacts] = useState([]);
+  const [contacts, setContacts] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedContact, setSelectedContact] = useState<any>(null);
@@ -49,16 +43,14 @@ export default function ContactsPage() {
   const [editingStatus, setEditingStatus] = useState('');
   const [editingNotes, setEditingNotes] = useState('');
   const [saving, setSaving] = useState(false);
-  const [stats, setStats] = useState(null);
+  const [stats, setStats] = useState<any>(null);
 
-  // Redirect if not authenticated
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
       router.push('/admin/login');
     }
   }, [isAuthenticated, authLoading, router]);
 
-  // Fetch contacts and stats
   const fetchContacts = async () => {
     try {
       setLoading(true);
@@ -71,7 +63,7 @@ export default function ContactsPage() {
       } else {
         setError(response.message || 'Failed to fetch contacts');
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to fetch contacts:', err);
       setError('Failed to load contacts');
     } finally {
@@ -85,21 +77,18 @@ export default function ContactsPage() {
     }
   }, [isAuthenticated]);
 
-  // Handle view contact
-  const handleView = (contact) => {
+  const handleView = (contact: any) => {
     setSelectedContact(contact);
     setEditingStatus(contact.status || 'new');
     setEditingNotes(contact.notes || '');
     setShowModal(true);
   };
 
-  // Handle edit contact
-  const handleEdit = (contact) => {
+  const handleEdit = (contact: any) => {
     handleView(contact);
   };
 
-  // Handle delete contact
-  const handleDelete = async (contact) => {
+  const handleDelete = async (contact: any) => {
     if (!confirm(`Are you sure you want to delete ${contact.name}?`)) {
       return;
     }
@@ -117,7 +106,6 @@ export default function ContactsPage() {
     }
   };
 
-  // Handle save contact changes
   const handleSave = async () => {
     if (!selectedContact) return;
 
@@ -142,7 +130,6 @@ export default function ContactsPage() {
     }
   };
 
-  // Handle approve affiliate
   const handleApproveAffiliate = async () => {
     if (!selectedContact) return;
 
@@ -152,11 +139,12 @@ export default function ContactsPage() {
 
     setSaving(true);
     try {
+      const token = localStorage.getItem('admin_token');
       const response = await fetch(`/api/admin/contacts/${selectedContact.id}/approve-affiliate`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('adminToken')}`
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
         }
       });
 
@@ -177,7 +165,6 @@ export default function ContactsPage() {
     }
   };
 
-  // Handle reject affiliate
   const handleRejectAffiliate = async () => {
     if (!selectedContact) return;
 
@@ -185,11 +172,12 @@ export default function ContactsPage() {
     
     setSaving(true);
     try {
+      const token = localStorage.getItem('admin_token');
       const response = await fetch(`/api/admin/contacts/${selectedContact.id}/reject-affiliate`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('adminToken')}`
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
         },
         body: JSON.stringify({ reason })
       });
@@ -211,7 +199,6 @@ export default function ContactsPage() {
     }
   };
 
-  // Handle export contacts
   const handleExport = async () => {
     try {
       const response = await adminAPI.exportContacts();
@@ -232,15 +219,13 @@ export default function ContactsPage() {
     }
   };
 
-  // Copy tracking link
-  const copyTrackingLink = (link) => {
+  const copyTrackingLink = (link: string) => {
     navigator.clipboard.writeText(link);
     alert('Tracking link copied to clipboard!');
   };
 
-  // Render type badge
-  const renderTypeBadge = (type) => {
-    const badges = {
+  const renderTypeBadge = (type: string) => {
+    const badges: Record<string, string> = {
       affiliate: 'bg-secondary-500/20 text-secondary-400 border-secondary-500/30',
       publisher: 'bg-secondary-500/20 text-secondary-400 border-secondary-500/30',
       advertiser: 'bg-primary-500/20 text-primary-400 border-primary-500/30',
@@ -249,7 +234,7 @@ export default function ContactsPage() {
       agency: 'bg-accent-blue/20 text-accent-blue border-accent-blue/30'
     };
     
-    const labels = {
+    const labels: Record<string, string> = {
       affiliate: 'Affiliate',
       publisher: 'Publisher',
       advertiser: 'Advertiser',
@@ -265,15 +250,14 @@ export default function ContactsPage() {
     );
   };
 
-  // Render affiliate status badge
-  const renderAffiliateStatusBadge = (status) => {
-    const badges = {
+  const renderAffiliateStatusBadge = (status: string) => {
+    const badges: Record<string, string> = {
       pending: 'bg-yellow-500/20 text-yellow-400 border-yellow-500/30',
       approved: 'bg-accent-green/20 text-accent-green border-accent-green/30',
       rejected: 'bg-accent-red/20 text-accent-red border-accent-red/30'
     };
     
-    const labels = {
+    const labels: Record<string, string> = {
       pending: 'Pending',
       approved: 'Approved',
       rejected: 'Rejected'
@@ -286,8 +270,19 @@ export default function ContactsPage() {
     );
   };
 
-  // Render API status
-  const renderApiStatus = (contact) => {
+  const renderFTDBadge = (contact: any) => {
+    if (contact.ftd) {
+      return (
+        <div className="flex items-center gap-1 text-accent-green" title={`FTD: $${contact.ftd_amount || 0}`}>
+          <DollarSign className="w-4 h-4" />
+          <span className="text-xs">${contact.ftd_amount || 0}</span>
+        </div>
+      );
+    }
+    return <span className="text-text-muted text-xs">-</span>;
+  };
+
+  const renderApiStatus = (contact: any) => {
     return (
       <div className="flex items-center gap-2">
         {contact.affiliateRegistered ? (
@@ -321,7 +316,6 @@ export default function ContactsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Page Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-text">Contacts</h1>
@@ -345,29 +339,47 @@ export default function ContactsPage() {
         </div>
       </div>
 
-      {/* Stats Cards */}
       {stats && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <Card className="p-4">
-            <div className="text-2xl font-bold text-text">{stats.total}</div>
-            <div className="text-sm text-text-muted">Total Contacts</div>
+            <div className="flex items-center gap-2">
+              <TrendingUp className="w-5 h-5 text-primary-500" />
+              <div>
+                <div className="text-2xl font-bold text-text">{stats.total}</div>
+                <div className="text-sm text-text-muted">Total Contacts</div>
+              </div>
+            </div>
           </Card>
           <Card className="p-4">
-            <div className="text-2xl font-bold text-accent-green">{stats.affiliateStats?.pending || 0}</div>
-            <div className="text-sm text-text-muted">Pending Affiliates</div>
+            <div className="flex items-center gap-2">
+              <UserCheck className="w-5 h-5 text-accent-green" />
+              <div>
+                <div className="text-2xl font-bold text-accent-green">{stats.affiliateStats?.approved || 0}</div>
+                <div className="text-sm text-text-muted">Approved Affiliates</div>
+              </div>
+            </div>
           </Card>
           <Card className="p-4">
-            <div className="text-2xl font-bold text-primary-400">{stats.byType?.affiliate || 0}</div>
-            <div className="text-sm text-text-muted">Affiliates</div>
+            <div className="flex items-center gap-2">
+              <DollarSign className="w-5 h-5 text-secondary-500" />
+              <div>
+                <div className="text-2xl font-bold text-secondary-400">{stats.ftdCount || 0}</div>
+                <div className="text-sm text-text-muted">FTDs</div>
+              </div>
+            </div>
           </Card>
           <Card className="p-4">
-            <div className="text-2xl font-bold text-secondary-400">{stats.byType?.advertiser || 0}</div>
-            <div className="text-sm text-text-muted">Advertisers</div>
+            <div className="flex items-center gap-2">
+              <Zap className="w-5 h-5 text-accent-orange" />
+              <div>
+                <div className="text-2xl font-bold text-accent-orange">${stats.totalFtdAmount || 0}</div>
+                <div className="text-sm text-text-muted">FTD Revenue</div>
+              </div>
+            </div>
           </Card>
         </div>
       )}
 
-      {/* Error Message */}
       {error && (
         <div className="p-4 bg-accent-red/10 border border-accent-red/30 rounded-xl flex items-center gap-3 text-accent-red">
           <AlertCircle className="w-5 h-5" />
@@ -381,7 +393,6 @@ export default function ContactsPage() {
         </div>
       )}
 
-      {/* Contacts Table */}
       <ContactsTable
         contacts={contacts}
         loading={loading}
@@ -391,13 +402,12 @@ export default function ContactsPage() {
         renderTypeBadge={renderTypeBadge}
         renderAffiliateStatusBadge={renderAffiliateStatusBadge}
         renderApiStatus={renderApiStatus}
+        renderFTDBadge={renderFTDBadge}
       />
 
-      {/* Contact Detail Modal */}
       {showModal && selectedContact && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-surface-200 rounded-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            {/* Modal Header */}
             <div className="flex items-center justify-between p-6 border-b border-surface-300">
               <h2 className="text-xl font-bold text-text">Contact Details</h2>
               <button
@@ -408,9 +418,7 @@ export default function ContactsPage() {
               </button>
             </div>
 
-            {/* Modal Content */}
             <div className="p-6 space-y-6">
-              {/* Contact Basic Info */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-text-muted mb-1">Name</label>
@@ -438,8 +446,7 @@ export default function ContactsPage() {
                 </div>
               </div>
 
-              {/* Affiliate-specific Section */}
-              {selectedContact.registration_type === 'affiliate' && (
+              {selectedContact.type === 'affiliate' && (
                 <div className="p-4 bg-primary-500/10 rounded-xl border border-primary-500/20">
                   <h3 className="font-semibold text-text mb-3 flex items-center gap-2">
                     <UserCheck className="w-4 h-4" />
@@ -456,35 +463,33 @@ export default function ContactsPage() {
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-text-muted mb-1">Traffic Source</label>
-                      <p className="text-text capitalize">{selectedContact.traffic_source?.replace(/_/g, ' ') || 'Not specified'}</p>
+                      <p className="text-text capitalize">{(selectedContact.tracking_source || 'contact_form').replace(/_/g, ' ')}</p>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-text-muted mb-1">Campaign ID</label>
-                      <p className="text-text font-mono">{selectedContact.campaign_id || '2'}</p>
+                      <p className="text-text font-mono">{selectedContact.campaign_id || '-'}</p>
                     </div>
-                    {selectedContact.tracking_link && (
-                      <div className="col-span-2">
-                        <label className="block text-sm font-medium text-text-muted mb-1">Tracking Link</label>
-                        <div className="flex items-center gap-2">
-                          <code className="text-sm bg-surface-100 p-2 rounded flex-1 overflow-x-auto text-text">
-                            {selectedContact.tracking_link}
-                          </code>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => copyTrackingLink(selectedContact.tracking_link)}
-                            leftIcon={<Copy className="w-4 h-4" />}
-                          >
-                            Copy
-                          </Button>
-                        </div>
+                    {selectedContact.sub1 && (
+                      <div>
+                        <label className="block text-sm font-medium text-text-muted mb-1">Click ID (sub1)</label>
+                        <p className="text-text font-mono">{selectedContact.sub1}</p>
                       </div>
                     )}
+                    <div>
+                      <label className="block text-sm font-medium text-text-muted mb-1">FTD Status</label>
+                      {selectedContact.ftd ? (
+                        <div className="flex items-center gap-2 text-accent-green">
+                          <CheckCircle className="w-4 h-4" />
+                          <span>FTD Completed (${selectedContact.ftd_amount || 0})</span>
+                        </div>
+                      ) : (
+                        <span className="text-text-muted">Not yet</span>
+                      )}
+                    </div>
                   </div>
                 </div>
               )}
 
-              {/* Message */}
               {selectedContact.message && (
                 <div>
                   <label className="block text-sm font-medium text-text-muted mb-1">Message</label>
@@ -492,7 +497,6 @@ export default function ContactsPage() {
                 </div>
               )}
 
-              {/* API Status Section */}
               <div className="p-4 bg-surface-100 rounded-xl">
                 <h3 className="font-semibold text-text mb-3 flex items-center gap-2">
                   <Zap className="w-4 h-4" />
@@ -500,10 +504,10 @@ export default function ContactsPage() {
                 </h3>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-text-muted mb-1">Blitz API</label>
+                    <label className="block text-sm font-medium text-text-muted mb-1">Barracuda Postback</label>
                     {renderApiStatus(selectedContact)}
                   </div>
-                  {selectedContact.registration_type === 'affiliate' && (
+                  {selectedContact.type === 'affiliate' && (
                     <div>
                       <label className="block text-sm font-medium text-text-muted mb-1">Hooplaseft</label>
                       {selectedContact.affiliateRegistered ? (
@@ -526,13 +530,15 @@ export default function ContactsPage() {
                   )}
                   {selectedContact.ftd && (
                     <div>
-                      <label className="block text-sm font-medium text-text-muted mb-1">FTD Status</label>
+                      <label className="block text-sm font-medium text-text-muted mb-1">FTD Details</label>
                       <div className="flex items-center gap-2">
-                        <CheckCircle className="w-4 h-4 text-accent-green" />
-                        <span className="text-sm text-accent-green">FTD Detected</span>
-                        {selectedContact.ftdDate && (
+                        <DollarSign className="w-4 h-4 text-accent-green" />
+                        <span className="text-sm text-accent-green">
+                          ${selectedContact.ftd_amount || 0}
+                        </span>
+                        {selectedContact.ftd_date && (
                           <span className="text-xs text-text-muted">
-                            ({new Date(selectedContact.ftdDate).toLocaleDateString()})
+                            ({new Date(selectedContact.ftd_date).toLocaleDateString()})
                           </span>
                         )}
                       </div>
@@ -541,12 +547,10 @@ export default function ContactsPage() {
                 </div>
               </div>
 
-              {/* Date */}
               <div className="text-sm text-text-muted">
                 Submitted on {new Date(selectedContact.createdAt).toLocaleString()}
               </div>
 
-              {/* Edit Form */}
               <div className="border-t border-surface-300 pt-6 space-y-4">
                 <h3 className="font-semibold text-text">Admin Actions</h3>
                 
@@ -555,7 +559,7 @@ export default function ContactsPage() {
                   <Select
                     options={statusOptions}
                     value={editingStatus}
-                    onChange={(e) => setEditingStatus(e.target.value)}
+                    onChange={(e: any) => setEditingStatus(e.target.value)}
                   />
                 </div>
 
@@ -564,13 +568,12 @@ export default function ContactsPage() {
                   <Textarea
                     placeholder="Add notes about this contact..."
                     value={editingNotes}
-                    onChange={(e) => setEditingNotes(e.target.value)}
+                    onChange={(e: any) => setEditingNotes(e.target.value)}
                     rows={3}
                   />
                 </div>
 
-                {/* Affiliate Actions */}
-                {selectedContact.registration_type === 'affiliate' && selectedContact.affiliate_status === 'pending' && (
+                {selectedContact.type === 'affiliate' && selectedContact.affiliate_status === 'pending' && (
                   <div className="space-y-3">
                     <h4 className="font-medium text-text">Affiliate Actions</h4>
                     <div className="flex flex-wrap gap-2">
@@ -597,12 +600,9 @@ export default function ContactsPage() {
                     </div>
                   </div>
                 )}
-
-
               </div>
             </div>
 
-            {/* Modal Footer */}
             <div className="flex items-center justify-end gap-3 p-6 border-t border-surface-300">
               <Button
                 variant="ghost"
@@ -624,6 +624,4 @@ export default function ContactsPage() {
     </div>
   );
 }
-
-
 
