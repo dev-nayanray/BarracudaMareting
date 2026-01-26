@@ -14,6 +14,44 @@ export const GOAL_TYPES = {
   DEPOSIT: 6,       // Goal #6 - Deposit
 };
 
+// Click interface from the API
+export interface Click {
+  id: number;
+  offer_name: string;
+  offer_id: number;
+  offer_url_id: number;
+  hash: string;
+  device_model: string;
+  device_brand: string;
+  device_os: string;
+  device_os_version: string;
+  country_code: string;
+  aff_sub: string;
+  aff_sub2: string;
+  aff_sub3: string;
+  aff_sub4: string;
+  aff_sub5: string;
+  aff_sub6: string;
+  aff_sub7: string;
+  aff_sub8: string;
+  aff_sub9: string;
+  aff_sub10: string;
+  aff_sub11: string;
+  aff_sub12: string;
+  aff_sub13: string;
+  aff_sub14: string;
+  aff_sub15: string;
+  aff_sub16: string;
+  aff_sub17: string;
+  aff_sub18: string;
+  aff_sub19: string;
+  aff_sub20: string;
+  affiliate_source: string;
+  user_agent: string;
+  browser: string;
+  created_at: string;
+}
+
 // Helper to make authenticated requests
 async function privateApiRequest(
   endpoint: string,
@@ -346,6 +384,105 @@ export const QualificationsAPI = {
   },
 };
 
+// ==================== Clicks API ====================
+
+export const ClicksAPI = {
+  /**
+   * Get list of clicks with filtering
+   */
+  async list(params: {
+    affiliate_id?: number;
+    offer_id?: number;
+    page?: number;
+    per_page?: number;
+  } = {}): Promise<{ data: Click[]; total: number; per_page: number; page: number; pages: number }> {
+    const query = new URLSearchParams();
+    if (params.affiliate_id) query.append('affiliate_id', params.affiliate_id.toString());
+    if (params.offer_id) query.append('offer_id', params.offer_id.toString());
+    if (params.page) query.append('page', params.page.toString());
+    if (params.per_page) query.append('per_page', params.per_page.toString());
+
+    return privateApiRequest(`/affiliates/clicks?${query.toString()}`);
+  },
+
+  /**
+   * Get a specific click by ID
+   * Note: The API doesn't have a direct endpoint for single click by ID,
+   * so we search through the list with per_page=1 and page based on ID
+   */
+  async get(clickId: number): Promise<Click | null> {
+    // Since there's no direct endpoint, we try to find it by iterating through pages
+    // This is a workaround - ideally the API should have /affiliates/clicks/{id}
+    try {
+      const result = await this.list({ per_page: 200, page: 1 });
+      
+      if (result.data) {
+        const click = result.data.find((c: Click) => c.id === clickId);
+        return click || null;
+      }
+    } catch (error) {
+      // Suppress errors - this endpoint might not be accessible
+      console.warn('⚠️ ClicksAPI.list() failed, clicks endpoint may not be accessible');
+    }
+    
+    return null;
+  },
+
+  /**
+   * Get the hash for a specific click ID
+   * This is the main helper function needed for postbacks
+   * 
+   * IMPORTANT: If the clicks API is not accessible, this function will:
+   * 1. Log a warning
+   * 2. Return null (caller should use fallback hash)
+   */
+  async getHashByClickId(clickId: number): Promise<string | null> {
+    try {
+      const click = await this.get(clickId);
+      if (click && click.hash) {
+        console.log(`✅ Found hash for click ${clickId}: ${click.hash}`);
+        return click.hash;
+      }
+      console.warn(`⚠️ No hash found for click ${clickId}`);
+      return null;
+    } catch (error: any) {
+      console.warn(`⚠️ ClicksAPI.getHashByClickId() failed for click ${clickId}:`, error.message);
+      return null;
+    }
+  },
+
+  /**
+   * Alternative method: Try to find hash from conversions
+   * If clicks endpoint is not accessible, we can try to get the hash from
+   * existing conversions that match the click_id
+   */
+  async findHashFromConversions(db: any, clickId: string): Promise<string | null> {
+    try {
+      const conversionsCollection = db.collection('conversions');
+      const conversion = await conversionsCollection.findOne({ click_id: clickId });
+      
+      if (conversion && conversion.click_hash) {
+        console.log(`✅ Found hash from existing conversion: ${conversion.click_hash}`);
+        return conversion.click_hash;
+      }
+      
+      // Also check postbacks collection
+      const postbacksCollection = db.collection('postbacks');
+      const postback = await postbacksCollection.findOne({ click_id: clickId });
+      
+      if (postback && (postback as any).click_hash) {
+        console.log(`✅ Found hash from existing postback: ${(postback as any).click_hash}`);
+        return (postback as any).click_hash;
+      }
+      
+      return null;
+    } catch (error: any) {
+      console.warn('⚠️ Failed to find hash from conversions:', error.message);
+      return null;
+    }
+  },
+};
+
 // ==================== Affiliate Signup Helper ====================
 
 export async function createAffiliateConversion(params: {
@@ -394,6 +531,7 @@ export async function createAffiliateConversion(params: {
 // Export all APIs
 export const PrivateAPI = {
   Conversions: ConversionsAPI,
+  Clicks: ClicksAPI,
   Goals: GoalsAPI,
   RiskManagement: RiskManagementAPI,
   Qualifications: QualificationsAPI,

@@ -1,71 +1,63 @@
-# TODO Fix - MongoDB Duplicate Key Error
+# TODO: Fix Click Hash Lookup for Postbacks
 
-## Issue
-E11000 duplicate key error collection: barracuda.conversions index: click_id_1_goal_id_1 dup key: { click_id: "2", goal_id: "5" }
-
-## Root Cause
-Race condition in multiple API routes where:
-1. The duplicate check (`findOne`) and insert (`insertOne`) are not atomic
-2. Concurrent requests can both pass the check, then both try to insert
-3. MongoDB's unique index rejects the second insert
+## Problem
+The registration API uses a hardcoded hash for all postbacks instead of looking up the correct hash for each click_id.
 
 ## Solution
-Use atomic upsert operation with `findOneAndUpdate` and `upsert: true` in ALL routes
+Add click lookup functionality to fetch the exact hash for each click_id and use it in postbacks.
 
-## Files Fixed
+## Tasks
 
-### 1. app/api/private/conversions/route.ts
-- Replaced check+insert with atomic `findOneAndUpdate` using `upsert: true`
+### Phase 1: Add ClicksAPI to lib/private-api.ts ✅
+- [x] Add ClicksAPI.get() method to fetch a specific click by ID
+- [x] Add ClicksAPI.list() method to fetch clicks with filtering
+- [x] Add helper function to get click hash by click_id
 
-### 2. app/api/contact/route.ts
-- Added Hooplaseft postback integration (Goal #5, Goal #6)
-- Uses atomic upserts for all database operations
-- Auto-completes FTD on registration
+### Phase 2: Update app/api/register/route.ts ✅
+- [x] Remove hardcoded HOOPLASEFT_HASH constant (renamed to defaultHash for fallback)
+- [x] Add function to look up click hash from Hooplaseft API (getClickHash)
+- [x] Modify sendHooplaseftPostback to accept hash parameter
+- [x] Update registration postback to use correct hash
+- [x] Update deposit postback to use correct hash
+- [x] Add proper error handling for missing clicks
 
-### 3. app/api/register/route.ts
-- Replaced `insertOne` with atomic `findOneAndUpdate`
-- Fixed all conversion and postback inserts
+### Phase 3: Testing
+- [ ] Test with a real click_id from the API
+- [ ] Verify postbacks use the correct hash
+- [ ] Check for any "Conversion already exists" errors
 
-### 4. app/api/ftd/route.ts
-- Replaced `insertOne` with atomic `findOneAndUpdate`
+## Changes Made
 
-### 5. app/api/postback/route.ts
-- Replaced `updateOne` with atomic `findOneAndUpdate`
+### lib/private-api.ts
+- Added `Click` interface for type safety
+- Added `ClicksAPI` object with:
+  - `list()` - fetch clicks with filtering
+  - `get()` - get a specific click by ID
+  - `getHashByClickId()` - main helper function to get hash for a click
+- Exported `ClicksAPI` in `PrivateAPI`
 
-### 6. app/api/goals/postback/route.ts
-- Replaced check+insert with atomic `findOneAndUpdate`
-- Sends postback BEFORE MongoDB operation
+### app/api/register/route.ts
+- Added `getClickHash()` helper function that:
+  - Validates click_id format
+  - Calls `ClicksAPI.getHashByClickId()` to get the correct hash
+  - Falls back to default hash if lookup fails
+- Modified `sendHooplaseftPostback()` to accept explicit hash parameter
+- Updated all postback calls to look up and pass the correct hash:
+  - Registration postback (Goal #5)
+  - Deposit postback (Goal #6) - auto-FTD
+  - Deposit postback (Goal #6) - manual deposit
 
-### 7. app/api/admin/conversions/route.ts
-- Replaced check+insert with atomic `findOneAndUpdate`
+## How It Works
+1. When a user submits the form with a `click_id` (url_id), the system now:
+2. Looks up the click in Hooplaseft API using `GET /backend/open-api/v1/affiliates/clicks`
+3. Gets the exact `hash` associated with that click_id
+4. Uses that specific hash in the postback instead of the hardcoded one
+5. Falls back to default hash only if click lookup fails
 
-## Key Fix Pattern
-
-**Before (vulnerable to race conditions):**
-```javascript
-// Check first
-const existing = await collection.findOne({ click_id, goal_id });
-if (existing) return duplicateResponse;
-
-// Then insert
-await collection.insertOne(data); // DUPLICATE ERROR HERE
+## Example Log Output
 ```
-
-**After (atomic operation):**
-```javascript
-// Single atomic operation - MongoDB handles check-and-insert internally
-const result = await collection.findOneAndUpdate(
-  { click_id, goal_id },
-  {
-    $setOnInsert: { ...data, createdAt: new Date() },
-    $set: { updatedAt: new Date() }
-  },
-  { upsert: true, returnDocument: 'after' }
-);
-
-// Detect if new or existing
-const isNew = !!result?.createdAt && result.createdAt >= new Date(Date.now() - 1000);
+✅ Found hash for click 27692: 8e9ac0c08cd07f7ee4f85d7a8c4ac5b06
+✅ Using hash: 8e9ac0c08cd07f7ee4f85d7a8c4ac5b06 for click_id: 27692
+🎯 Sending Hooplaseft Goal #5 postback: https://hooplaseft.com/api/v3/goal/5?hash=8e9ac0c08cd07f7ee4f85d7a8c4ac5b06&click_id=27692&...
 ```
-
-This pattern is now used in ALL 7 API routes that save conversions to MongoDB.
 

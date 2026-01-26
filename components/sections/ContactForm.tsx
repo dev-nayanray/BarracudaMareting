@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence, Variants } from 'framer-motion';
 import { Send, CheckCircle2, AlertCircle, Loader2, UserPlus, Link, Copy, ExternalLink, Globe, Crosshair as CrosshairIcon, RefreshCw } from 'lucide-react';
+import { ReadonlyURLSearchParams } from 'next/navigation';
 import Input from '@/components/ui/Input';
 import Select from '@/components/ui/Select';
 import Textarea from '@/components/ui/Textarea';
@@ -121,7 +122,7 @@ const trafficSourceOptions = [
   { value: 'other', label: 'Other' },
 ];
 
-const ContactFormContent = ({ searchParams }: { searchParams: URLSearchParams | null }) => {
+const ContactFormContent = ({ searchParams }: { searchParams: ReadonlyURLSearchParams | null }) => {
   // Form state
   const [formData, setFormData] = useState<ContactFormData>({
     name: '',

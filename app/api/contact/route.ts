@@ -7,19 +7,36 @@ const HOOPLASEFT_CONFIG = {
   baseUrl: 'https://hooplaseft.com/api/v3',
   goalRegistration: '5',  // Registration Goal
   goalDeposit: '6',       // Deposit Goal
-  hash: process.env.HOOPLASEFT_HASH || '52631455a41fec8cb6ceafce98fc75a5'  // Using the hash from user's data
+  defaultHash: 'eb20d583f46d5dc303e251607e04d240'  // Default hash if not provided
 };
+
+// Helper function to generate a unique click hash (sub1)
+// This creates a 32-character hex string that Hooplaseft expects
+function generateClickHash(): string {
+  // Generate a random 16-byte hex string (32 characters)
+  const bytes = new Uint8Array(16);
+  if (typeof crypto !== 'undefined' && crypto.getRandomValues) {
+    crypto.getRandomValues(bytes);
+  } else {
+    // Fallback for environments without crypto.getRandomValues
+    for (let i = 0; i < 16; i++) {
+      bytes[i] = Math.floor(Math.random() * 256);
+    }
+  }
+  return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+}
 
 // Helper function to send Hooplaseft goal postback
 async function sendHooplaseftPostback(
   goalId: string,
   clickId: string,
   affiliateId: string,
+  hash: string,
   params: Record<string, string> = {}
 ): Promise<{ success: boolean; message: string; statusCode: number }> {
   try {
     const urlParams = new URLSearchParams({
-      hash: HOOPLASEFT_CONFIG.hash,
+      hash: hash,
       click_id: clickId,
       affiliate_id: affiliateId,
       ...params
@@ -30,6 +47,7 @@ async function sendHooplaseftPostback(
     console.log(`   URL: ${url}`);
     console.log(`   Click ID: ${clickId}`);
     console.log(`   Affiliate ID: ${affiliateId}`);
+    console.log(`   Hash: ${hash}`);
 
     const response = await fetch(url, {
       method: 'GET',
@@ -46,6 +64,51 @@ async function sendHooplaseftPostback(
   } catch (error: any) {
     console.error(`❌ Hooplaseft Goal #${goalId} error:`, error.message);
     return { success: false, message: error.message, statusCode: 500 };
+  }
+}
+
+// Helper function to get click_id from Hooplaseft by calling the offer URL
+async function getHooplaseftClickId(
+  affiliateId: string,
+  urlId: string,
+  params: Record<string, string> = {}
+): Promise<{ success: boolean; clickId: string | null; message: string }> {
+  try {
+    // Build the offer URL that will redirect and give us a click_id
+    const urlParams = new URLSearchParams({
+      affiliate_id: affiliateId,
+      url_id: urlId,
+      ...params
+    });
+    
+    const offerUrl = `${HOOPLASEFT_CONFIG.baseUrl}/offer/2?${urlParams.toString()}`;
+    console.log(`🎯 Calling Hooplaseft offer URL to get click_id:`);
+    console.log(`   URL: ${offerUrl}`);
+
+    // Follow the redirect to get the click_id
+    const response = await fetch(offerUrl, {
+      method: 'GET',
+      headers: {
+        'User-Agent': 'Next.js Affiliate API',
+        'Accept': 'application/json'
+      },
+      redirect: 'follow'
+    });
+
+    // Extract click_id from the final URL
+    const finalUrl = response.url;
+    console.log(`✅ Hooplaseft redirect URL: ${finalUrl}`);
+    
+    // Try to extract click_id from URL parameters
+    const urlObj = new URL(finalUrl);
+    const clickId = urlObj.searchParams.get('click_id') || urlObj.searchParams.get('affiliate_id') || urlId;
+    
+    console.log(`   Extracted click_id: ${clickId}`);
+    
+    return { success: true, clickId, message: 'Click ID obtained from Hooplaseft' };
+  } catch (error: any) {
+    console.error(`❌ Failed to get click_id from Hooplaseft:`, error.message);
+    return { success: false, clickId: urlId, message: error.message };
   }
 }
 
@@ -157,20 +220,38 @@ export async function POST(request: NextRequest) {
     // (Triggered for EVERY submission when type is provided)
     // -------------------------------
     if (type) {
-      // Use default values if affiliate_id/url_id not provided
       const effectiveAffiliateId = affiliate_id || '2';
-      const effectiveUrlId = url_id || '2';
-      const effectiveSub1 = sub1 || `click_${Date.now()}`;
+      
+      // Generate a unique hash for this registration if not provided from URL
+      // This is the KEY fix: Generate a unique hash for every submission
+      const hashPattern = /^[a-f0-9]{32,}$/i;
+      let effectiveHash: string;
+      
+      if (sub1 && hashPattern.test(sub1)) {
+        // Use the hash from URL if it's a valid hash
+        effectiveHash = sub1;
+      } else {
+        // Generate a new unique hash for this registration
+        effectiveHash = generateClickHash();
+        console.log(`🎯 Generated new unique hash: ${effectiveHash}`);
+      }
+      
+      // Use the hash as click_id for postback tracking
+      const effectiveClickId = effectiveHash;
+      
+      console.log(`🎯 Using dynamic click_id: ${effectiveClickId} (sub1: ${sub1}, url_id: ${url_id})`);
+      console.log(`🎯 Using hash: ${effectiveHash}`);
       
       // 1. Send Registration Postback (Goal #5)
       console.log('🎯 Sending Hooplaseft Registration Postback (Goal #5)');
       
       const registrationResult = await sendHooplaseftPostback(
         HOOPLASEFT_CONFIG.goalRegistration,
-        effectiveUrlId,
+        effectiveClickId,
         effectiveAffiliateId,
+        effectiveHash,
         {
-          sub1: effectiveSub1,
+          sub1: effectiveClickId,
           sub2: sub2 || '',
           sub3: sub3 || '',
           goal_type: 'registration',
@@ -184,10 +265,10 @@ export async function POST(request: NextRequest) {
 
       // 2. Save registration conversion (atomic upsert)
       await conversionsCollection.findOneAndUpdate(
-        { click_id: effectiveUrlId, goal_id: HOOPLASEFT_CONFIG.goalRegistration },
+        { click_id: effectiveClickId, goal_id: HOOPLASEFT_CONFIG.goalRegistration },
         {
           $setOnInsert: {
-            click_id: effectiveUrlId,
+            click_id: effectiveClickId,
             affiliate_id: effectiveAffiliateId,
             goal_id: HOOPLASEFT_CONFIG.goalRegistration,
             goal_type: 'registration',
@@ -195,9 +276,10 @@ export async function POST(request: NextRequest) {
             amount: 0,
             sale_amount: undefined,
             status: registrationResult.success ? 'approved' : 'pending',
-            sub1: effectiveSub1,
+            sub1: effectiveClickId,
             sub2: sub2 || undefined,
             sub3: sub3 || undefined,
+            hash: effectiveHash,
             metadata: { 
               name, 
               email, 
@@ -248,10 +330,11 @@ export async function POST(request: NextRequest) {
       
       const depositResult = await sendHooplaseftPostback(
         HOOPLASEFT_CONFIG.goalDeposit,
-        effectiveUrlId,
+        effectiveClickId,
         effectiveAffiliateId,
+        effectiveHash,
         {
-          sub1: effectiveSub1,
+          sub1: effectiveClickId,
           sub2: sub2 || '',
           sub3: sub3 || '',
           goal_type: 'deposit',
@@ -264,10 +347,10 @@ export async function POST(request: NextRequest) {
 
       // 6. Save deposit conversion (atomic upsert)
       await conversionsCollection.findOneAndUpdate(
-        { click_id: effectiveUrlId, goal_id: HOOPLASEFT_CONFIG.goalDeposit },
+        { click_id: effectiveClickId, goal_id: HOOPLASEFT_CONFIG.goalDeposit },
         {
           $setOnInsert: {
-            click_id: effectiveUrlId,
+            click_id: effectiveClickId,
             affiliate_id: effectiveAffiliateId,
             goal_id: HOOPLASEFT_CONFIG.goalDeposit,
             goal_type: 'deposit',
@@ -275,9 +358,10 @@ export async function POST(request: NextRequest) {
             amount: depositAmount,
             sale_amount: sale_amount || depositAmount,
             status: depositResult.success ? 'approved' : 'pending',
-            sub1: effectiveSub1,
+            sub1: effectiveClickId,
             sub2: sub2 || undefined,
             sub3: sub3 || undefined,
+            hash: effectiveHash,
             metadata: { 
               name, 
               email, 
@@ -296,19 +380,20 @@ export async function POST(request: NextRequest) {
 
       // 7. Save to postbacks collection (atomic upsert)
       await postbacksCollection.findOneAndUpdate(
-        { click_id: effectiveUrlId, goal: 'registration' },
+        { click_id: effectiveClickId, goal: 'registration' },
         {
           $setOnInsert: {
-            click_id: effectiveUrlId,
+            click_id: effectiveClickId,
             affiliate_id: effectiveAffiliateId,
             offer_id: undefined,
             goal: 'registration',
             amount: undefined,
             sale_amount: undefined,
             status: 'pending',
-            sub1: effectiveSub1,
+            sub1: effectiveClickId,
             sub2: sub2 || undefined,
             sub3: sub3 || undefined,
+            hash: effectiveHash,
             createdAt: new Date()
           },
           $set: { updatedAt: new Date() }
@@ -319,19 +404,20 @@ export async function POST(request: NextRequest) {
 
       // 8. Save deposit postback
       await postbacksCollection.findOneAndUpdate(
-        { click_id: effectiveUrlId, goal: 'deposit' },
+        { click_id: effectiveClickId, goal: 'deposit' },
         {
           $setOnInsert: {
-            click_id: effectiveUrlId,
+            click_id: effectiveClickId,
             affiliate_id: effectiveAffiliateId,
             offer_id: undefined,
             goal: 'deposit',
             amount: depositAmount,
             sale_amount: sale_amount || depositAmount,
             status: depositResult.success ? 'approved' : 'pending',
-            sub1: effectiveSub1,
+            sub1: effectiveClickId,
             sub2: sub2 || undefined,
             sub3: sub3 || undefined,
+            hash: effectiveHash,
             createdAt: new Date()
           },
           $set: { updatedAt: new Date() }
@@ -355,9 +441,10 @@ export async function POST(request: NextRequest) {
           registrationStatus: registrationResult.success ? 'approved' : 'pending',
           depositStatus: depositResult.success ? 'approved' : 'pending',
           userType: type,
-          clickId: effectiveUrlId,
+          clickId: effectiveClickId,
           affiliateId: effectiveAffiliateId,
-          sub1: effectiveSub1,
+          sub1: effectiveClickId,
+          hash: effectiveHash,
           note: type === 'affiliate' 
             ? 'Your application is under review. You will receive dashboard access within 24 hours.'
             : 'Thank you for registering. Our team will contact you within 24 hours.'
@@ -371,10 +458,17 @@ export async function POST(request: NextRequest) {
     if (type === 'affiliate' && affiliate_id && url_id && deposit_amount && deposit_amount > 0) {
       console.log('🎯 Sending Deposit Postback (Goal #6)');
       
+      // Extract hash from sub1 if it looks like a hash
+      const hashPattern = /^[a-f0-9]{32,}$/i;
+      const effectiveHash = (sub1 && hashPattern.test(sub1)) 
+        ? sub1 
+        : HOOPLASEFT_CONFIG.defaultHash;
+      
       const depositResult = await sendHooplaseftPostback(
         HOOPLASEFT_CONFIG.goalDeposit,
         url_id,
         affiliate_id,
+        effectiveHash,
         {
           sub1: sub1 || '',
           sub2: sub2 || '',
@@ -401,6 +495,7 @@ export async function POST(request: NextRequest) {
             sub1: sub1 || undefined,
             sub2: sub2 || undefined,
             sub3: sub3 || undefined,
+            hash: effectiveHash,
             metadata: { name, email, company },
             createdAt: new Date()
           },
@@ -430,7 +525,8 @@ export async function POST(request: NextRequest) {
         data: {
           affiliateApplied: true,
           ftd: depositResult.success,
-          ftd_amount: deposit_amount
+          ftd_amount: deposit_amount,
+          hash: effectiveHash
         }
       });
     }
