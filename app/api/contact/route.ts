@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase, getContactsCollection, getPostbacksCollection, getConversionsCollection, Contact, Postback, Conversion } from '@/lib/mongodb';
-import { PrivateAPI, GOAL_TYPES } from '@/lib/private-api';
+import { PrivateAPI, GOAL_TYPES, ClicksAPI } from '@/lib/private-api';
 
 // Hooplaseft API Configuration
 const HOOPLASEFT_CONFIG = {
@@ -223,21 +223,37 @@ export async function POST(request: NextRequest) {
       const effectiveAffiliateId = affiliate_id || '2';
       
       // Generate a unique hash for this registration if not provided from URL
-      // This is the KEY fix: Generate a unique hash for every submission
+      // This is the KEY fix: Get a valid hash from Hooplaseft instead of generating random ones
       const hashPattern = /^[a-f0-9]{32,}$/i;
       let effectiveHash: string;
+      let effectiveClickId: string;
       
       if (sub1 && hashPattern.test(sub1)) {
         // Use the hash from URL if it's a valid hash
         effectiveHash = sub1;
+        effectiveClickId = sub1;
+        console.log(`🎯 Using hash from URL: ${effectiveHash}`);
       } else {
-        // Generate a new unique hash for this registration
-        effectiveHash = generateClickHash();
-        console.log(`🎯 Generated new unique hash: ${effectiveHash}`);
+        // Call Hooplaseft offer URL to get a valid click with hash
+        // This is the KEY fix: Get a real hash from Hooplaseft instead of generating random ones
+        console.log(`🎯 No valid sub1 hash, calling Hooplaseft to create click...`);
+        const clickResult = await ClicksAPI.createClickAndGetHash(
+          effectiveAffiliateId,
+          url_id || '2',
+          { name, email, company }
+        );
+        
+        if (clickResult.success && clickResult.hash) {
+          effectiveHash = clickResult.hash;
+          effectiveClickId = clickResult.clickId || clickResult.hash;
+          console.log(`🎯 Got valid hash from Hooplaseft: ${effectiveHash}`);
+        } else {
+          // Fallback to generated hash if API call fails
+          effectiveHash = generateClickHash();
+          effectiveClickId = effectiveHash;
+          console.log(`🎯 Hooplaseft API failed, using generated hash: ${effectiveHash}`);
+        }
       }
-      
-      // Use the hash as click_id for postback tracking
-      const effectiveClickId = effectiveHash;
       
       console.log(`🎯 Using dynamic click_id: ${effectiveClickId} (sub1: ${sub1}, url_id: ${url_id})`);
       console.log(`🎯 Using hash: ${effectiveHash}`);

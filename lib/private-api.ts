@@ -406,6 +406,70 @@ export const ClicksAPI = {
   },
 
   /**
+   * Create a click on Hooplaseft and get the sub1 hash from the redirect URL
+   * This is the key function to get a valid hash for postbacks
+   * 
+   * @param affiliateId - The affiliate ID to use
+   * @param urlId - The URL ID (offer URL ID)
+   * @param userData - Optional user data to include in the tracking URL
+   * @returns Object with success, clickId, hash, and message
+   */
+  async createClickAndGetHash(
+    affiliateId: string,
+    urlId: string,
+    userData: { name?: string; email?: string; company?: string } = {}
+  ): Promise<{ success: boolean; clickId: string | null; hash: string | null; message: string }> {
+    try {
+      // Build the offer URL with unique=1 to trigger new click generation
+      // This matches the approach in register/route.ts
+      const urlParams = new URLSearchParams({
+        affiliate_id: affiliateId,
+        url_id: urlId,
+        source: 'contact_form',
+        unique: '1',  // Critical: triggers new click generation
+        ...(userData.name && { name: userData.name }),
+        ...(userData.email && { email: userData.email }),
+        ...(userData.company && { company: userData.company })
+      });
+      
+      // Use the public v3 API for offer URL
+      const offerUrl = `https://hooplaseft.com/api/v3/offer/2?${urlParams.toString()}`;
+      console.log(`🎯 Calling Hooplaseft offer URL to create click and get hash:`);
+      console.log(`   URL: ${offerUrl}`);
+
+      // Follow the redirect to get the sub1 hash
+      const response = await fetch(offerUrl, {
+        method: 'GET',
+        headers: {
+          'User-Agent': 'Next.js Affiliate API',
+          'Accept': 'application/json'
+        },
+        redirect: 'follow'
+      });
+
+      // Extract sub1 from the final URL
+      const finalUrl = response.url;
+      console.log(`✅ Hooplaseft redirect URL: ${finalUrl}`);
+      
+      const urlObj = new URL(finalUrl);
+      const sub1 = urlObj.searchParams.get('sub1');
+      const clickId = urlObj.searchParams.get('click_id') || urlObj.searchParams.get('affiliate_id') || urlId;
+      
+      console.log(`   Extracted sub1 (hash): ${sub1}`);
+      console.log(`   Extracted click_id: ${clickId}`);
+      
+      if (sub1) {
+        return { success: true, clickId, hash: sub1, message: 'Click created and hash obtained from Hooplaseft' };
+      } else {
+        return { success: false, clickId, hash: null, message: 'No sub1 parameter in redirect URL' };
+      }
+    } catch (error: any) {
+      console.error(`❌ Failed to create click and get hash from Hooplaseft:`, error.message);
+      return { success: false, clickId: null, hash: null, message: error.message };
+    }
+  },
+
+  /**
    * Get a specific click by ID
    * Note: The API doesn't have a direct endpoint for single click by ID,
    * so we search through the list with per_page=1 and page based on ID
