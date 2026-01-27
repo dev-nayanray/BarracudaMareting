@@ -1,1 +1,0 @@
-{"success":true,"data":{"total":8,"byGoalType":{"registration":{"count":4,"percentage":"50.00"},"deposit":{"count":4,"percentage":"50.00"}},"byStatus":{"pending":1,"approved":7},"totalRevenue":400,"approvedConversions":7,"approvedRevenue":400,"thisMonth":{"count":8,"revenue":400},"topAffiliates":[{"affiliate_id":"2","conversions":8,"revenue":400}],"conversionRate":"87.50%"}}
