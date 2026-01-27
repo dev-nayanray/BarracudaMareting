@@ -432,8 +432,8 @@ export const ClicksAPI = {
         ...(userData.company && { company: userData.company })
       });
       
-      // Use the public v3 API for offer URL
-      const offerUrl = `https://hooplaseft.com/api/v3/offer/2?${urlParams.toString()}`;
+      // Use the public v3 API for offer URL - using offer ID 1 (the working offer)
+      const offerUrl = `https://hooplaseft.com/api/v3/offer/1?${urlParams.toString()}`;
       console.log(`🎯 Calling Hooplaseft offer URL to create click and get hash:`);
       console.log(`   URL: ${offerUrl}`);
 

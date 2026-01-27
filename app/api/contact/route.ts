@@ -239,7 +239,7 @@ export async function POST(request: NextRequest) {
         console.log(`🎯 No valid sub1 hash, calling Hooplaseft to create click...`);
         const clickResult = await ClicksAPI.createClickAndGetHash(
           effectiveAffiliateId,
-          url_id || '2',
+          url_id || '1',  // Use url_id 1 (the working offer)
           { name, email, company }
         );
         
