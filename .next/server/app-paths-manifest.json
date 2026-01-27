@@ -1,24 +1,4 @@
 {
   "/_not-found/page": "app/_not-found/page.js",
-  "/api/admin/auth/profile/route": "app/api/admin/auth/profile/route.js",
-  "/api/admin/auth/login/route": "app/api/admin/auth/login/route.js",
-  "/api/admin/contacts/[id]/route": "app/api/admin/contacts/[id]/route.js",
-  "/api/admin/contacts/route": "app/api/admin/contacts/route.js",
-  "/api/admin/contacts/stats/route": "app/api/admin/contacts/stats/route.js",
-  "/api/admin/conversions/route": "app/api/admin/conversions/route.js",
-  "/api/admin/conversions/stats/route": "app/api/admin/conversions/stats/route.js",
-  "/api/ftd/route": "app/api/ftd/route.js",
-  "/api/contact/route": "app/api/contact/route.js",
-  "/api/goals/postback/route": "app/api/goals/postback/route.js",
-  "/api/private/conversions/route": "app/api/private/conversions/route.js",
-  "/api/postback/route": "app/api/postback/route.js",
-  "/landing/page": "app/landing/page.js",
-  "/api/test-api/route": "app/api/test-api/route.js",
-  "/api/register/route": "app/api/register/route.js",
-  "/page": "app/page.js",
-  "/admin/conversions/page": "app/admin/conversions/page.js",
-  "/admin/contacts/page": "app/admin/contacts/page.js",
-  "/admin/login/page": "app/admin/login/page.js",
-  "/admin/settings/page": "app/admin/settings/page.js",
-  "/admin/dashboard/page": "app/admin/dashboard/page.js"
+  "/page": "app/page.js"
 }

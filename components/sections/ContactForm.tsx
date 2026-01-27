@@ -82,8 +82,9 @@ const CONFIG = {
   DEFAULT_AFFILIATE_ID: process.env.NEXT_PUBLIC_DEFAULT_AFFILIATE_ID || '2',
   URL_ID: process.env.NEXT_PUBLIC_URL_ID || '2',
   HOOPLASEFT_API_URL: process.env.NEXT_PUBLIC_HOOPLASEFT_API_URL || 'https://hooplaseft.com/api/v3/offer/2',
-  API_ENDPOINT: process.env.NEXT_PUBLIC_API_ENDPOINT || '/api/contact',
-  FTD_ENDPOINT: process.env.NEXT_PUBLIC_FTD_ENDPOINT || '/api/ftd'
+  // Always use relative API paths to avoid mixed content errors
+  API_ENDPOINT: '/api/contact',
+  FTD_ENDPOINT: '/api/ftd'
 };
 
 // Messenger options
