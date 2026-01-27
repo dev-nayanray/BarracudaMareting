@@ -448,11 +448,12 @@ export const ClicksAPI = {
       });
 
       // Extract sub1 from the final URL
+      // Note: Hooplaseft may return the parameter as "sub" or "sub1"
       const finalUrl = response.url;
       console.log(`✅ Hooplaseft redirect URL: ${finalUrl}`);
       
       const urlObj = new URL(finalUrl);
-      const sub1 = urlObj.searchParams.get('sub1');
+      const sub1 = urlObj.searchParams.get('sub1') || urlObj.searchParams.get('sub');
       const clickId = urlObj.searchParams.get('click_id') || urlObj.searchParams.get('affiliate_id') || urlId;
       
       console.log(`   Extracted sub1 (hash): ${sub1}`);
